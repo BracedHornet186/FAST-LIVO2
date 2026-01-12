@@ -13,11 +13,11 @@ def generate_launch_description():
     
     ntu_config = os.path.join(pkg_fast_livo, 'config', 'NTU_VIRAL.yaml')
     camera_config = os.path.join(pkg_fast_livo, 'config', 'camera_NTU_VIRAL.yaml')
-    rviz_config = os.path.join(pkg_fast_livo, 'rviz_cfg', 'ntu_viral.rviz')
+    rviz_config = os.path.join(pkg_fast_livo, 'rviz_cfg', 'livo.rviz')
 
     declare_rviz_arg = DeclareLaunchArgument(
         'rviz',
-        default_value='false',
+        default_value='true',
         description='Whether to launch RViz'
     )
 
