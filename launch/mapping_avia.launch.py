@@ -13,11 +13,11 @@ def generate_launch_description():
     
     avia_config = os.path.join(pkg_fast_livo, 'config', 'avia.yaml')
     camera_config = os.path.join(pkg_fast_livo, 'config', 'camera_pinhole.yaml')
-    rviz_config = os.path.join(pkg_fast_livo, 'rviz_cfg', 'fast_livo2.rviz')
+    rviz_config = os.path.join(pkg_fast_livo, 'rviz_cfg', 'livo.rviz')
 
     declare_rviz_arg = DeclareLaunchArgument(
         'rviz',
-        default_value='false',
+        default_value='true',
         description='Whether to launch RViz'
     )
 
@@ -29,10 +29,7 @@ def generate_launch_description():
         parameters=[
             avia_config,
             camera_config
-        ],
-        # To use GDB or Valgrind, uncomment the prefix line below:
-        # prefix=['gdb -ex run --args'], 
-        # prefix=['valgrind --leak-check=full'],
+        ]
     )
 
     rviz_node = Node(
@@ -51,7 +48,7 @@ def generate_launch_description():
         output='screen',
         respawn=True,
         remappings=[
-            ('in/compressed', '/left_camera/image/compressed'),
+            ('in/compressed', '/camera/image_raw/compressed'),
             ('out', '/left_camera/image')
         ]
     )
@@ -59,6 +56,6 @@ def generate_launch_description():
     return LaunchDescription([
         declare_rviz_arg,
         fast_livo_node,
-        republish_node,
+        # republish_node,
         rviz_node
     ])

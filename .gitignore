@@ -6,7 +6,6 @@ install/
 
 # Ignore all files in the log directory
 log/
-Log/
 
 # Ignore all files that are user specific
 *.swp

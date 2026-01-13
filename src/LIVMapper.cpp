@@ -45,7 +45,7 @@ LIVMapper::LIVMapper(const rclcpp::NodeOptions & options)
   initializeComponents();
   
   path.header.stamp = this->now();
-  path.header.frame_id = "camera_init";
+  path.header.frame_id = "odom";
   
   // Initialize Subs/Pubs after params are read
   initializeSubscribersAndPublishers();
@@ -124,6 +124,7 @@ void LIVMapper::readParameters()
   declare_and_get("publish.blind_rgb_points", blind_rgb_points, 0.01);
   declare_and_get("publish.pub_scan_num", pub_scan_num, 1);
   declare_and_get("publish.pub_effect_point_en", pub_effect_point_en, false);
+  declare_and_get("publish.pub_tf_odom", pub_tf_odom, false);
   declare_and_get("publish.dense_map_en", dense_map_en, false);
 
   p_pre->blind_sqr = p_pre->blind * p_pre->blind;
@@ -474,7 +475,7 @@ void LIVMapper::handleLIO()
   sensor_msgs::msg::PointCloud2 laserCloudmsg;
   pcl::toROSMsg(*pcl_l_wait_pub, laserCloudmsg);
   laserCloudmsg.header.stamp = rclcpp::Time(static_cast<int64_t>(LidarMeasures.last_lio_update_time * 1e9));
-  laserCloudmsg.header.frame_id = "camera_init";
+  laserCloudmsg.header.frame_id = "odom";
   pubLaserCloudFullResBody->publish(laserCloudmsg);
 
   publish_odometry_lidar(pubOdomAftMappedLiDAR);
@@ -839,7 +840,6 @@ void LIVMapper::img_cbk(const sensor_msgs::msg::Image::ConstSharedPtr msg_in)
   
   double msg_header_time = timeToSec(msg->header.stamp) + img_time_offset;
   if (abs(msg_header_time - last_timestamp_img) < 0.001) return;
-  RCLCPP_INFO(this->get_logger(), "Get image, its header time: %.6f", msg_header_time);
   if (last_timestamp_lidar < 0) return;
 
   if (msg_header_time < last_timestamp_img)
@@ -1093,32 +1093,70 @@ void LIVMapper::publish_frame_world(const rclcpp::Publisher<sensor_msgs::msg::Po
       size_t size = pcl_wait_pub->points.size();
       laserCloudWorldRGB->reserve(size);
       cv::Mat img_rgb = vio_manager->img_rgb;
+      // --- DEBUG COUNTERS ---
+      int count_total = 0;
+      int count_neg_z = 0;
+      int count_out_of_frame = 0;
+      int count_blind_spot = 0;
+      int count_valid = 0;
+      // ----------------------
       for (size_t i = 0; i < size; i++)
       {
+        count_total++;
         PointTypeRGB pointRGB;
         pointRGB.x = pcl_wait_pub->points[i].x;
         pointRGB.y = pcl_wait_pub->points[i].y;
         pointRGB.z = pcl_wait_pub->points[i].z;
 
         V3D p_w(pcl_wait_pub->points[i].x, pcl_wait_pub->points[i].y, pcl_wait_pub->points[i].z);
-        V3D pf(vio_manager->new_frame_->w2f(p_w)); if (pf[2] < 0) continue;
+        // Check 1: World to Frame
+        V3D pf(vio_manager->new_frame_->w2f(p_w)); 
+        if (pf[2] < 0) {
+            count_neg_z++;
+            continue;
+        }
+        // Check 2: Frame to Pixel
         V2D pc(vio_manager->new_frame_->w2c(p_w));
 
+        // Check 3: Is it in the image?
         if (vio_manager->new_frame_->cam_->isInFrame(pc.cast<int>(), 3)) 
         {
           V3F pixel = vio_manager->getInterpolatedPixel(img_rgb, pc);
           pointRGB.r = pixel[2];
           pointRGB.g = pixel[1];
           pointRGB.b = pixel[0];
-          if (pf.norm() > blind_rgb_points) laserCloudWorldRGB->push_back(pointRGB);
+
+          // Check 4: Blind spot
+          if (pf.norm() > blind_rgb_points) {
+              laserCloudWorldRGB->push_back(pointRGB);
+              count_valid++;
+          } else {
+              count_blind_spot++;
+          }
+        } else {
+            count_out_of_frame++;
         }
       }
+
+      // Print the statistics once per scan
+      std::cout << "--- Projection Debug ---" << std::endl;
+      std::cout << "Total Input Points: " << count_total << std::endl;
+      std::cout << "Rejected (Behind Camera Z<0): " << count_neg_z << std::endl;
+      std::cout << "Rejected (Out of Frame): " << count_out_of_frame << std::endl;
+      std::cout << "Rejected (Blind Spot): " << count_blind_spot << std::endl;
+      std::cout << "ACCEPTED Points: " << count_valid << std::endl;
+      
+      // Check if image is actually valid
+      if (img_rgb.empty()) std::cout << "CRITICAL: vio_manager->img_rgb is EMPTY!" << std::endl;
     }
     else
     {
       pub_num++;
+      // Notify if we are just waiting
+      if (pub_num % 5 == 0) std::cout << "Waiting for batch: " << pub_num << "/" << pub_scan_num << std::endl;
     }
   }
+      
 
   sensor_msgs::msg::PointCloud2 laserCloudmsg;
   if (img_en)
@@ -1130,7 +1168,7 @@ void LIVMapper::publish_frame_world(const rclcpp::Publisher<sensor_msgs::msg::Po
     pcl::toROSMsg(*pcl_w_wait_pub, laserCloudmsg); 
   }
   laserCloudmsg.header.stamp = this->now();
-  laserCloudmsg.header.frame_id = "camera_init";
+  laserCloudmsg.header.frame_id = "odom";
   pubLaserCloudFullRes->publish(laserCloudmsg);
 
   if (pcd_save_en)
@@ -1189,7 +1227,7 @@ void LIVMapper::publish_visual_sub_map(const rclcpp::Publisher<sensor_msgs::msg:
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
     pcl::toROSMsg(*sub_pcl_visual_map_pub, laserCloudmsg);
     laserCloudmsg.header.stamp = this->now();
-    laserCloudmsg.header.frame_id = "camera_init";
+    laserCloudmsg.header.frame_id = "odom";
     pubSubVisualMap->publish(laserCloudmsg);
   }
 }
@@ -1207,7 +1245,7 @@ void LIVMapper::publish_effect_world(const rclcpp::Publisher<sensor_msgs::msg::P
   sensor_msgs::msg::PointCloud2 laserCloudFullRes3;
   pcl::toROSMsg(*laserCloudWorld, laserCloudFullRes3);
   laserCloudFullRes3.header.stamp = this->now();
-  laserCloudFullRes3.header.frame_id = "camera_init";
+  laserCloudFullRes3.header.frame_id = "odom";
   pubLaserCloudEffect->publish(laserCloudFullRes3);
 }
 
@@ -1224,14 +1262,14 @@ template <typename T> void LIVMapper::set_posestamp(T &out)
 
 void LIVMapper::publish_odometry(const rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr &pubOdomAftMapped)
 {
-  odomAftMapped.header.frame_id = "camera_init";
+  odomAftMapped.header.frame_id = "odom";
   odomAftMapped.child_frame_id = "aft_mapped";
   odomAftMapped.header.stamp = rclcpp::Time(static_cast<int64_t>(LidarMeasures.last_lio_update_time * 1e9));
   set_posestamp(odomAftMapped.pose.pose);
 
   geometry_msgs::msg::TransformStamped transform;
   transform.header.stamp = odomAftMapped.header.stamp;
-  transform.header.frame_id = "camera_init";
+  transform.header.frame_id = "odom";
   transform.child_frame_id = "aft_mapped";
   transform.transform.translation.x = _state.pos_end(0);
   transform.transform.translation.y = _state.pos_end(1);
@@ -1241,7 +1279,7 @@ void LIVMapper::publish_odometry(const rclcpp::Publisher<nav_msgs::msg::Odometry
   transform.transform.rotation.y = geoQuat.y;
   transform.transform.rotation.z = geoQuat.z;
   
-  tf_broadcaster_->sendTransform(transform);
+  if (pub_tf_odom) tf_broadcaster_->sendTransform(transform);
   pubOdomAftMapped->publish(odomAftMapped);
 }
 
@@ -1253,8 +1291,8 @@ void LIVMapper::publish_odometry_cam(const rclcpp::Publisher<nav_msgs::msg::Odom
   Eigen::Quaterniond q_w_c(R_w_c);
   
   nav_msgs::msg::Odometry camOdomAftMapped;
-  camOdomAftMapped.header.frame_id = "camera_init";
-  camOdomAftMapped.child_frame_id = "camera";
+  camOdomAftMapped.header.frame_id = "odom";
+  camOdomAftMapped.child_frame_id = "camera_link";
   camOdomAftMapped.header.stamp = rclcpp::Time(static_cast<int64_t>(LidarMeasures.last_lio_update_time * 1e9));
   camOdomAftMapped.pose.pose.position.x = t_w_c(0);
   camOdomAftMapped.pose.pose.position.y = t_w_c(1);
@@ -1266,8 +1304,8 @@ void LIVMapper::publish_odometry_cam(const rclcpp::Publisher<nav_msgs::msg::Odom
 
   geometry_msgs::msg::TransformStamped transform;
   transform.header.stamp = camOdomAftMapped.header.stamp;
-  transform.header.frame_id = "camera_init";
-  transform.child_frame_id = "camera";
+  transform.header.frame_id = "odom";
+  transform.child_frame_id = "camera_link";
   transform.transform.translation.x = t_w_c(0);
   transform.transform.translation.y = t_w_c(1);
   transform.transform.translation.z = t_w_c(2);
@@ -1276,7 +1314,7 @@ void LIVMapper::publish_odometry_cam(const rclcpp::Publisher<nav_msgs::msg::Odom
   transform.transform.rotation.y = q_w_c.y();
   transform.transform.rotation.z = q_w_c.z();
 
-  tf_broadcaster_->sendTransform(transform);
+  if (pub_tf_odom) tf_broadcaster_->sendTransform(transform);
   pubOdomAftMapped->publish(camOdomAftMapped);
 }
 
@@ -1288,8 +1326,8 @@ void LIVMapper::publish_odometry_lidar(const rclcpp::Publisher<nav_msgs::msg::Od
   Eigen::Quaterniond q_w_l(R_w_l);
   
   nav_msgs::msg::Odometry lidarOdomAftMapped;
-  lidarOdomAftMapped.header.frame_id = "camera_init";
-  lidarOdomAftMapped.child_frame_id = "lidar";
+  lidarOdomAftMapped.header.frame_id = "odom";
+  lidarOdomAftMapped.child_frame_id = "os1_sensor";
   lidarOdomAftMapped.header.stamp = rclcpp::Time(static_cast<int64_t>(LidarMeasures.last_lio_update_time * 1e9));
   lidarOdomAftMapped.pose.pose.position.x = t_w_l(0);
   lidarOdomAftMapped.pose.pose.position.y = t_w_l(1);
@@ -1301,8 +1339,8 @@ void LIVMapper::publish_odometry_lidar(const rclcpp::Publisher<nav_msgs::msg::Od
 
   geometry_msgs::msg::TransformStamped transform;
   transform.header.stamp = lidarOdomAftMapped.header.stamp;
-  transform.header.frame_id = "camera_init";
-  transform.child_frame_id = "lidar";
+  transform.header.frame_id = "odom";
+  transform.child_frame_id = "os1_sensor";
   transform.transform.translation.x = t_w_l(0);
   transform.transform.translation.y = t_w_l(1);
   transform.transform.translation.z = t_w_l(2);
@@ -1311,14 +1349,14 @@ void LIVMapper::publish_odometry_lidar(const rclcpp::Publisher<nav_msgs::msg::Od
   transform.transform.rotation.y = q_w_l.y();
   transform.transform.rotation.z = q_w_l.z();
 
-  tf_broadcaster_->sendTransform(transform);
+  if (pub_tf_odom) tf_broadcaster_->sendTransform(transform);
   pubOdomAftMapped->publish(lidarOdomAftMapped);
 }
 
 void LIVMapper::publish_mavros(const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr &mavros_pose_publisher)
 {
   msg_body_pose.header.stamp = this->now();
-  msg_body_pose.header.frame_id = "camera_init";
+  msg_body_pose.header.frame_id = "odom";
   set_posestamp(msg_body_pose.pose);
   mavros_pose_publisher->publish(msg_body_pose);
 }
@@ -1327,7 +1365,7 @@ void LIVMapper::publish_path(const rclcpp::Publisher<nav_msgs::msg::Path>::Share
 {
   set_posestamp(msg_body_pose.pose);
   msg_body_pose.header.stamp = this->now();
-  msg_body_pose.header.frame_id = "camera_init";
+  msg_body_pose.header.frame_id = "odom";
   path.poses.push_back(msg_body_pose);
   pubPath->publish(path);
 }

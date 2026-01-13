@@ -10,11 +10,15 @@
 
     extrin_calib:
       # IMU to LiDAR
-      extrinsic_T: [0.0, 0.0, 0.45]
+      # extrinsic_T: [0.0, 0.0, -0.45]
+      extrinsic_T: [0.0, 0.0, 0.0]
       extrinsic_R: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
       # LiDAR to Camera
-      Rcl: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-      Pcl: [0.2,  0.0, 0.3]
+      # Pcl: [-0.2,  0.0, -1.2]
+      Pcl: [0.0,  0.0, 0.0]
+      Rcl: [0.0, -1.0, 0.0, 
+            0.0,  0.0, -1.0, 
+            1.0,  0.0,  0.0]
 
     time_offset:
       lidar_time_offset: 0.0
@@ -25,13 +29,13 @@
     preprocess:
       point_filter_num: 3
       filter_size_surf: 0.1
-      lidar_type: 3 # Ouster
+      lidar_type: 2 # VELO16
       scan_line: 16
       blind: 1.0
 
     vio:
       max_iterations: 5
-      outlier_threshold: 1000.0 # 78 100 156 #100 200 500 700 infinite
+      outlier_threshold: 100.0 # 78 100 156 #100 200 500 700 infinite
       img_point_cov: 100.0 # 100 1000 
       patch_size: 8
       patch_pyrimid_level: 3
@@ -72,6 +76,7 @@
       dense_map_en: true
       pub_effect_point_en: false 
       pub_plane_en: false
+      pub_tf_odom: false
       pub_scan_num: 1
       blind_rgb_points: 0.0
 
@@ -80,7 +85,7 @@
       pose_output_en: true
 
     pcd_save:
-      pcd_save_en: false
+      pcd_save_en: true
       type: 0 # 0: World Frame, 1: Body Frame;
       colmap_output_en: false # need to set interval = -1
       filter_size_pcd: 0.15

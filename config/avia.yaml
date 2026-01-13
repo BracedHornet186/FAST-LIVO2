@@ -1,24 +1,24 @@
 /**:
   ros__parameters:  
     common:
-      img_topic: "/left_camera/image"
-      lid_topic: "/livox/lidar"
-      imu_topic: "/livox/imu"
+      img_topic: "/camera/image_raw"
+      lid_topic: "/lidar/points"
+      imu_topic: "/imu/data"
       img_en: 1
       lidar_en: 1
       ros_driver_bug_fix: false
 
     extrin_calib:
-      extrinsic_T: [0.04165, 0.02326, -0.0284]
+      # IMU to LiDAR
+      extrinsic_T: [0.0, 0.0, -0.45]
       extrinsic_R: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-      Rcl: [0.00610193,-0.999863,-0.0154172,
-            -0.00615449,0.0153796,-0.999863,
-            0.999962,0.00619598,-0.0060598] 
-      Pcl: [0.0194384, 0.104689,-0.0251952]
+      # LiDAR to Camera
+      Rcl: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+      Pcl: [-0.2,  0.0, -1.2]
 
-    time_offset: 
+    time_offset:
       imu_time_offset: 0.0
-      img_time_offset: 0.1
+      img_time_offset: 0.0
       exposure_time_init: 0.0
 
     preprocess:
@@ -76,10 +76,10 @@
 
     evo:
       seq_name: "CBD_Building_01"
-      pose_output_en: false
+      pose_output_en: true
 
     pcd_save:
-      pcd_save_en: false
+      pcd_save_en: true
       type: 0 # 0: World Frame, 1: Body Frame;
       colmap_output_en: false # need to set interval = -1
       filter_size_pcd: 0.15

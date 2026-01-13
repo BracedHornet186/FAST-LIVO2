@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /PointCloud21
+        - /PointCloud21/Status1
       Splitter Ratio: 0.5
     Tree Height: 532
   - Class: rviz_common/Selection
@@ -77,7 +78,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /lidar/points
+        Value: /cloud_effected
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -118,66 +119,24 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: /odom
+        Value: /aft_mapped_to_init
       Value: true
     - Class: rviz_default_plugins/TF
-      Enabled: true
+      Enabled: false
       Filter (blacklist): ""
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        base_footprint:
-          Value: false
-        base_link:
-          Value: true
-        camera_link:
-          Value: true
-        camera_optical_frame:
-          Value: false
-        castor_wheel:
-          Value: false
-        connecting_rod:
-          Value: false
-        gps_link:
-          Value: false
-        imu_link:
-          Value: false
-        left_wheel:
-          Value: false
-        odom:
-          Value: true
-        os1_sensor:
-          Value: true
-        right_wheel:
-          Value: false
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: true
       Tree:
-        odom:
-          base_footprint:
-            base_link:
-              camera_link:
-                camera_optical_frame:
-                  {}
-              connecting_rod:
-                castor_wheel:
-                  {}
-              gps_link:
-                {}
-              imu_link:
-                {}
-              left_wheel:
-                {}
-              os1_sensor:
-                {}
-              right_wheel:
-                {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Class: rviz_default_plugins/Image
       Enabled: true
       Max Value: 1
@@ -238,7 +197,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 8.956599235534668
+      Distance: 16.077829360961914
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -253,10 +212,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7497962713241577
+      Pitch: 0.7447963953018188
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.1403896808624268
+      Yaw: 2.940394878387451
     Saved: ~
 Window Geometry:
   Displays:
